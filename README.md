@@ -4,9 +4,17 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
 
-A comprehensive networking laboratory project demonstrating **multithreaded server-client architecture** in Java. This project implements a secure banking system with concurrent client handling, transaction management, and data persistence.
+A comprehensive networking laboratory project demonstrating **multithreaded server-client architecture** in Java. This project includes two major implementations: a secure banking system and an enhanced multi-client chat system.
 
-## ✨ Features
+## 📁 Project Components
+
+### 🏦 Banking System (`Server-Client-Multithreade-Bank/`)
+A secure banking application with concurrent client handling, transaction management, and data persistence.
+
+### 💬 Chat System (`Chat Server client/`)
+An enhanced multi-client chat system with real-time messaging, user management, and collaborative features.
+
+## ✨ Banking System Features
 
 - 🔐 **Secure Authentication**: PIN-based card authentication system
 - 💰 **Banking Operations**: Balance inquiry and secure withdrawals
@@ -15,6 +23,17 @@ A comprehensive networking laboratory project demonstrating **multithreaded serv
 - 💾 **Data Persistence**: Automatic saving of client data to file
 - 📊 **Real-time Logging**: Comprehensive server-side transaction logging
 - 🚀 **Easy Deployment**: Simple scripts for running multiple clients
+
+## ✨ Chat System Features
+
+- 🚀 **Multi-Client Support**: Handle unlimited simultaneous connections
+- 👤 **User Authentication**: Unique username system with validation
+- 💬 **Real-Time Messaging**: Instant message broadcasting to all users
+- 🕒 **Timestamped Messages**: All messages include timestamps
+- 👥 **Online User List**: See who's currently online
+- 🛡️ **Thread-Safe Operations**: Concurrent data structures and synchronization
+- 🎨 **Beautiful UI**: Enhanced console interface with emojis
+- ⚡ **Graceful Shutdown**: Proper connection handling and cleanup
 
 ## 🏗️ Architecture
 
@@ -42,32 +61,37 @@ WITHDRAW:txid:amount → WITHDRAW_OK/INSUFFICIENT_FUNDS/ALREADY_WITHDRAWN
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+### Banking System Demo
 ```bash
-git clone https://github.com/Clear20-22/Networking-Lab-with-Java.git
-cd Networking-Lab-with-Java
-```
-
-### 2. Navigate to Project Directory
-```bash
+# Navigate to banking system
 cd Server-Client-Multithreade-Bank
-```
 
-### 3. Compile the Java Files
-```bash
+# Compile and run
 javac *.java
-```
-
-### 4. Start the Server
-```bash
-java Server_17_23
-```
-The server will start listening on port 6002.
-
-### 5. Run Clients
-Open a new terminal window and run:
-```bash
+java Server_17_23 &
 java Client_17_23
+```
+
+### Chat System Demo
+```bash
+# Navigate to chat system
+cd "Chat Server client"
+
+# Use the interactive demo
+./demo.sh
+```
+
+### Manual Chat Setup
+```bash
+# Terminal 1 - Start Server
+cd "Chat Server client"
+java server
+
+# Terminal 2 - Start Client 1
+java client
+
+# Terminal 3 - Start Client 2
+java client1
 ```
 
 Or launch multiple clients using the launcher:
