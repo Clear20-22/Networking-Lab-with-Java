@@ -1,104 +1,102 @@
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpExchange;
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.net.URI;
-import java.nio.file.Files;
 import java.util.concurrent.Executors;
 
 public class Server {
-    public static void main(String[] args) throws Exception {
-        int port = 8080;
-        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+    private static final int PORT = 8080;
 
-        server.createContext("/upload", new UploadHandler());
+    public static void main(String[] args) throws IOException {
+
+        HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/download", new DownloadHandler());
-
-        server.setExecutor(Executors.newFixedThreadPool(10)); // multiple clients
-        System.out.println("🚀 Server started at http://localhost:" + port);
+        server.createContext("/upload", new UploadHandler());
+        server.setExecutor(Executors.newCachedThreadPool()); 
         server.start();
+        System.out.println("HTTP File Server started on port " + PORT);
     }
 
-    // ====== POST Handler: Upload File ======
-    static class UploadHandler implements HttpHandler {
-        @Override
-        public void handle(HttpExchange exchange) throws IOException {
-            if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
-                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
-                return;
-            }
 
-            String fileName = "upload_" + System.currentTimeMillis() + ".bin";
-            File file = new File(fileName);
-
-            try (InputStream is = exchange.getRequestBody();
-                 FileOutputStream fos = new FileOutputStream(file)) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = is.read(buffer)) != -1) {
-                    fos.write(buffer, 0, bytesRead);
-                }
-            }
-
-            String response = "✅ File uploaded as: " + file.getName();
-            byte[] bytes = response.getBytes();
-
-            exchange.sendResponseHeaders(200, bytes.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(bytes);
-                os.flush();
-            }
-
-            System.out.println("[UPLOAD] Saved file: " + file.getName());
-        }
-    }
-
-    // ====== GET Handler: Download File ======
     static class DownloadHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            System.out.println("Download request received.");
+            if (!"GET".equals(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1); 
+                System.out.println("HTTP/1.1 405 Method Not Allowed");
                 return;
             }
 
-            URI requestURI = exchange.getRequestURI();
-            String query = requestURI.getQuery(); // e.g., filename=test.txt
-            if (query == null || !query.startsWith("filename=")) {
-                String response = "❌ Missing filename parameter";
-                exchange.sendResponseHeaders(400, response.length());
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(response.getBytes());
+            String query = exchange.getRequestURI().getQuery();
+            String filename = null;
+            if (query != null && query.startsWith("filename=")) {
+                filename = query.substring(9);
+            }
+
+            if (filename == null || filename.isEmpty()) {
+                exchange.sendResponseHeaders(400, -1); 
+                System.out.println("HTTP/1.1 400 Bad Request");
+                return;
+            }
+
+            File file = new File(filename);
+            if (!file.exists() || !file.isFile()) {
+                exchange.sendResponseHeaders(404, -1); 
+                System.out.println("HTTP/1.1 404 Not Found");
+                return;
+            }
+
+            exchange.getResponseHeaders().set("Content-Type", "application/octet-stream");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+            exchange.sendResponseHeaders(200, file.length());
+            System.out.println("HTTP/1.1 200 OK - File downloaded: " + filename);
+
+        
+            try (FileInputStream fis = new FileInputStream(file);
+                 OutputStream os = exchange.getResponseBody()) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = fis.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
                 }
+            }
+        }
+    }
+
+ 
+    static class UploadHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                System.out.println("HTTP/1.1 405 Method Not Allowed");
                 return;
             }
 
-            String fileName = query.substring("filename=".length());
-            File file = new File(fileName);
 
-            if (!file.exists()) {
-                String response = "❌ File Not Found";
-                exchange.sendResponseHeaders(404, response.length());
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(response.getBytes());
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String filename = "upload_" + timestamp + ".dat";
+            File outFile = new File(filename);
+
+       
+            try (InputStream is = exchange.getRequestBody();
+                 FileOutputStream fos = new FileOutputStream(outFile)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    fos.write(buffer, 0, read);
                 }
-                System.out.println("[DOWNLOAD] File not found: " + fileName);
-                return;
             }
 
-            byte[] fileBytes = Files.readAllBytes(file.toPath());
-            exchange.getResponseHeaders().add("Content-Type", "application/octet-stream");
-            exchange.getResponseHeaders().add("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
-
-            exchange.sendResponseHeaders(200, fileBytes.length);
+  
+            exchange.sendResponseHeaders(200, 0);
+            System.out.println("HTTP/1.1 200 OK");
             try (OutputStream os = exchange.getResponseBody()) {
-                os.write(fileBytes);
-                os.flush();
+                os.write(("File uploaded successfully as: " + filename).getBytes());
+                System.out.println("File uploaded and saved as: " + filename);
             }
-
-            System.out.println("[DOWNLOAD] Sent file: " + fileName);
         }
     }
 }

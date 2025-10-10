@@ -1,93 +1,104 @@
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.*;
 import java.util.Scanner;
 
 public class Client {
-    private static final String SERVER_URL = "http://localhost:8080";
+    private static final String SERVER_IP = "localhost";
+    private static final int SERVER_PORT = 8080;
 
-    public static void main(String[] args) throws Exception {
-        try (Scanner scanner = new Scanner(System.in)) {
-            while (true) {
-                System.out.println("\n=== HTTP File Client ===");
-                System.out.println("1. Upload File (POST)");
-                System.out.println("2. Download File (GET)");
-                System.out.println("3. Exit");
-                System.out.print("Choose option: ");
-                int choice = scanner.nextInt();
-                scanner.nextLine();
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        while (true) {
+            System.out.println("\nChoose an option:");
+            System.out.println("1) Upload file");
+            System.out.println("2) Download file");
+            System.out.println("3) Quit");
+            System.out.print("Enter choice: ");
+            String choice = sc.nextLine().trim();
 
-                if (choice == 1) {
-                    System.out.print("Enter path of file to upload: ");
-                    String path = scanner.nextLine();
-                    uploadFile(path);
-                } else if (choice == 2) {
-                    System.out.print("Enter filename to download: ");
-                    String fileName = scanner.nextLine();
-                    downloadFile(fileName);
-                } else {
-                    break;
-                }
+            if (choice.equals("1")) {
+                uploadFile(sc);
+            } else if (choice.equals("2")) {
+                downloadFile(sc);
+            } else if (choice.equals("3")) {
+                break;
+            } else {
+                System.out.println("Invalid choice.");
             }
         }
     }
 
-    // ---------- Upload ----------
     @SuppressWarnings("deprecation")
-    private static void uploadFile(String filePath) throws Exception {
+    private static void uploadFile(Scanner sc) {
+        System.out.print("Enter the path of the file to upload: ");
+        String filePath = sc.nextLine().trim();
         File file = new File(filePath);
-        if (!file.exists()) {
-            System.out.println("❌ File not found locally: " + filePath);
+        if (!file.exists() || !file.isFile()) {
+            System.out.println("File not found.");
             return;
         }
 
-        URL url = new URL(SERVER_URL + "/upload");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setDoOutput(true);
-        conn.setRequestMethod("POST");
+        try {
+            URL url = new URL("http://" + SERVER_IP + ":" + SERVER_PORT + "/upload");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
 
-        try (OutputStream os = conn.getOutputStream();
-             FileInputStream fis = new FileInputStream(file)) {
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = fis.read(buffer)) != -1) {
-                os.write(buffer, 0, bytesRead);
+            try (FileInputStream fis = new FileInputStream(file);
+                 OutputStream os = conn.getOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = fis.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
             }
-        }
 
-        int responseCode = conn.getResponseCode();
-        if (responseCode == 200) {
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-                String response = br.readLine();
-                System.out.println("✅ Server Response: " + response);
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                    String response = br.readLine();
+                    System.out.println("Upload confirmation: " + response);
+                }
+            } else {
+                System.out.println("Upload failed with response code: " + responseCode);
             }
-        } else {
-            System.out.println("❌ Upload failed with code: " + responseCode);
+        } catch (IOException e) {
+            System.err.println("Upload error: " + e.getMessage());
         }
     }
 
-    // ---------- Download ----------
     @SuppressWarnings("deprecation")
-    private static void downloadFile(String fileName) throws Exception {
-        URL url = new URL(SERVER_URL + "/download?filename=" + fileName);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
+    private static void downloadFile(Scanner sc) {
+        System.out.print("Enter the filename to download: ");
+        String filename = sc.nextLine().trim();
 
-        int responseCode = conn.getResponseCode();
-        if (responseCode == 200) {
-            System.out.println("✅ File found on server: " + fileName);
-            System.out.println("📥 File content (showing in terminal):");
+        try {
+            URL url = new URL("http://" + SERVER_IP + ":" + SERVER_PORT + "/download?filename=" + URLEncoder.encode(filename, "UTF-8"));
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
 
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    System.out.println(line); // Print file content
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+              
+                File outFile = new File("downloaded_" + filename);
+                try (InputStream is = conn.getInputStream();
+                     FileOutputStream fos = new FileOutputStream(outFile)) {
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = is.read(buffer)) != -1) {
+                        fos.write(buffer, 0, read);
+                    }
+                    
                 }
+                System.out.println("Download successful. File saved as: " + outFile.getName());
+            } else if (responseCode == 404) {
+                System.out.println("File not found on server.");
+            } else {
+                System.out.println("Download failed with response code: " + responseCode);
             }
-        } else if (responseCode == 404) {
-            System.out.println("❌ File not found on server: " + fileName);
-        } else {
-            System.out.println("⚠️ Request failed, code: " + responseCode);
+        } catch (IOException e) {
+            System.err.println("Download error: " + e.getMessage());
         }
     }
 }
